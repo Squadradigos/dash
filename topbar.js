@@ -222,6 +222,50 @@ body.topbar-modal-open {
       String(d.getMonth() + 1).padStart(2, '0') + '-' +
       String(d.getDate()).padStart(2, '0');
   }
+  function activeDateKey() {
+    const now = new Date();
+    if (now.getHours() < 6) now.setDate(now.getDate() - 1);
+    return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  }
+  async function fetchRemoteGoalsAndMerge() {
+    if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return;
+    if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
+    try {
+      const supa = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);
+      const { data } = await supa.from('app_state').select('data').eq('key', 'goals').maybeSingle();
+      const remote = (data && data.data && data.data.goals) || {};
+      const key = 'goals:' + activeDateKey();
+      let local = [];
+      try { local = JSON.parse(localStorage.getItem(key)) || []; } catch (e) { local = []; }
+      const remoteArray = Array.isArray(remote) ? remote : (remote[activeDateKey()] || []);
+      const ids = new Set(local.map(g => g && g.id).filter(Boolean));
+      let merged = local.slice();
+      for (const r of (remoteArray || [])) {
+        if (!r || !r.id) continue;
+        if (!ids.has(r.id)) merged.push(r);
+      }
+      if (merged.length !== local.length) {
+        try { localStorage.setItem(key, JSON.stringify(merged)); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+  async function pushLocalGoalsToSupabase() {
+    if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return;
+    if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
+    try {
+      const key = 'goals:' + activeDateKey();
+      let local = [];
+      try { local = JSON.parse(localStorage.getItem(key)) || []; } catch (e) { local = []; }
+      const supa = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);
+      const { data } = await supa.from('app_state').select('data').eq('key', 'goals').maybeSingle();
+      const current = (data && data.data) || {};
+      const merged = Object.assign({}, current, { goals: { [activeDateKey()]: local } });
+      await supa.from('app_state').upsert(
+        { key: 'goals', data: merged, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
+    } catch (e) {}
+  }
   function getWaterProgress() {
     let state = null;
     try { state = JSON.parse(localStorage.getItem('po_water_v1')); } catch (e) {}
@@ -315,10 +359,13 @@ body.topbar-modal-open {
     render();
     lockGestures();
     startModalLock();
-    window.addEventListener('storage', render);
-    window.addEventListener('focus', render);
+    window.addEventListener('storage', (e) => { render(); if (e && e.key && e.key.indexOf('goals:') === 0) pushLocalGoalsToSupabase(); });
+    window.addEventListener('focus', () => { render(); fetchRemoteGoalsAndMerge(); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
     setInterval(render, 30 * 1000);
+    // Sync goals with Supabase periodically to propagate changes across devices
+    setInterval(fetchRemoteGoalsAndMerge, 15 * 1000);
+    fetchRemoteGoalsAndMerge();
   }
 
   if (document.readyState === 'loading') {
