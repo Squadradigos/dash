@@ -14,6 +14,23 @@
   const TOPBAR_SUPABASE_URL = 'https://yifethequioqnvbgtvsb.supabase.co';
   const TOPBAR_SUPABASE_KEY = 'sb_publishable_mwtqwX9t6FWlGylOWASPig_FPNAeFOJ';
 
+  // Ensure the Supabase client library is available. If the page didn't
+  // include it, dynamically inject the UMD build from jsDelivr and wait
+  // for it to load so `window.supabase.createClient` becomes available.
+  function ensureSupabaseClient() {
+    if (window.supabase) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      try {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js';
+        s.async = true;
+        s.onload = () => { setTimeout(resolve, 0); };
+        s.onerror = () => reject(new Error('Failed to load Supabase client'));
+        document.head.appendChild(s);
+      } catch (e) { reject(e); }
+    });
+  }
+
   // -------- CSS --------
   const css = `
 .topbar {
@@ -228,6 +245,7 @@ body.topbar-modal-open {
     return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
   }
   async function fetchRemoteGoalsAndMerge() {
+    try { await ensureSupabaseClient(); } catch (_) { return; }
     if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return;
     if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
     try {
@@ -250,6 +268,7 @@ body.topbar-modal-open {
     } catch (e) {}
   }
   async function pushLocalGoalsToSupabase() {
+    try { await ensureSupabaseClient(); } catch (_) { return; }
     if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return;
     if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
     try {
@@ -323,7 +342,8 @@ body.topbar-modal-open {
   }
   async function pushWaterMergedToSupabase(localWater) {
     if (window.location.pathname.endsWith('/health.html') ||
-        window.location.pathname.endsWith('health.html')) return;
+      window.location.pathname.endsWith('health.html')) return;
+    try { await ensureSupabaseClient(); } catch (_) { return; }
     if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return;
     if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
     try {
