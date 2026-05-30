@@ -27,21 +27,7 @@ Contact: rowan.wisere@gmail.com
      Most settings are also editable in-app via the gear icon.
      ============================================================= -->
 <script>
-
-  <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    try { if (window.self !== window.top) return; } catch (e) { return; }
-    if (typeof initCloudSync !== 'function') return;
-    initCloudSync({
-      appKey: 'health',
-      syncedKeys: ['po_water_v1'],
-      onApplied: function () { window.dispatchEvent(new Event('storage')); }
-    });
-  });
-  </script>
-
-</body>
-</html>
+const CONFIG = {
   // Default unit. Options: "bottle" | "glass" | "oz" | "ml"
   unit: "bottle",
 
@@ -68,6 +54,18 @@ Contact: rowan.wisere@gmail.com
   // narrow-therapeutic-window safety bumps).
   defaultSubstances: []
 };
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    try { if (window.self !== window.top) return; } catch (e) { return; }
+    if (typeof initCloudSync !== 'function') return;
+    initCloudSync({
+      appKey: 'health',
+      syncedKeys: ['po_water_v1'],
+      onApplied: function () { window.dispatchEvent(new Event('storage')); }
+    });
+  });
 </script>
 
 <style>
